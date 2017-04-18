@@ -5,14 +5,16 @@
 import time
 import trio
 from wsproto.connection import WSConnection, CLIENT
-from ws_base import WebsocketBase, RunnerBase
+from ws_base import WebsocketBase
+from runner_base import ClientRunner
 
 
 class WebSocketClientConnection(WebsocketBase):
 
-    def __init__(self, client_sock, host="", port=8080, path=''):
+    def __init__(self, client_sock, ident, host="", port=8080, path='/'):
         self.wsconn = WSConnection(CLIENT, host+":"+str(port), path)
         self.host, self.port, self.path = host, port, path
+        print(path)
         WebsocketBase.__init__(self, client_sock)
 
     async def generate(self):
@@ -39,19 +41,5 @@ class WebSocketClientConnection(WebsocketBase):
                 print("Latency:", latency, "Throughput:", throughput, "/sec")
 
 
-class WSClientRunner(RunnerBase):
-
-    def __init__(self, ws_client_process, host="127.0.0.1", port=8080, path='/'):
-        self.host, self.port, self.path = host, port, path
-        self.ws_client_process = ws_client_process
-
-    async def process(self, nursery, web_sock, all_ws):
-        print("connecting to {}:{}{}".format(self.host, self.port, self.path))
-        await web_sock.connect((self.host, self.port))
-        print("socket connected")
-        wsc = self.ws_client_process(web_sock, self.host, self.port, self.path)
-        wsc.run(nursery, all_ws)
-        await wsc.finished.wait()
-
-wsc = WSClientRunner(WebSocketClientConnection)
+wsc = ClientRunner(WebSocketClientConnection)
 trio.run(wsc.run)

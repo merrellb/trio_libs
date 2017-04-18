@@ -3,66 +3,12 @@
 
 import traceback
 import trio
-from wsproto.events import (ConnectionClosed, ConnectionRequested, ConnectionEstablished,
-                            TextReceived, BytesReceived)
-
+from wsproto.events import (ConnectionClosed, ConnectionRequested,
+                            ConnectionEstablished, TextReceived,
+                            BytesReceived)
 DATA_TYPES = (TextReceived, BytesReceived)
 
-
-# Simple Websocket management
-class AwaitableSet(set):
-
-    def __init__(self, *args, **kwargs):
-        set.__init__(self, *args, **kwargs)
-        self.empty = trio.Event()
-        self.empty.set()
-
-    def add(self, *args, **kwargs):
-        set.add(self, *args, **kwargs)
-        self.empty.clear()
-
-    def remove(self, *args, **kwargs):
-        set.remove(self, *args, **kwargs)
-        print("await", len(self))
-        if not self:
-            self.empty.set()
-
-    async def shutdown_all(self):
-        for conn in self:
-            conn.shutdown.set()
-        await self.empty.wait()
-
-# Base class handles nursery and socket scoping plus KeyboardInterrupt
-
-
-class RunnerBase():
-    async def run(self):
-        async with trio.open_nursery() as nursery:
-            connection_manager = AwaitableSet()
-            with trio.socket.socket() as socket:
-                try:
-                    await self.process(nursery, socket, connection_manager)
-                except KeyboardInterrupt:
-                    print("Keyboard")
-                    await connection_manager.shutdown_all()
-                    print("Done")
-
-
-def cancellable_factory(func_name, ws_instance):
-    func = getattr(ws_instance, func_name)
-    async def scope_func():
-        try:
-            print(func_name, " {}: started".format(ws_instance.ident))
-            with trio.open_cancel_scope() as cancel_scope:
-                ws_instance.cancel_scopes.append(cancel_scope)
-                await func()
-        except Exception as exc:
-            traceback.print_exc()
-            print(func_name, " {}: crashed: {!r}".format(ws_instance.ident, exc))
-            await ws_instance.shutdown.set()
-        print(func_name, " {}: stopped".format(ws_instance.ident))
-    return scope_func
-
+from trio_util import cancellable_factory
 
 # Websocket Base class.
 # Initializes four tasks
