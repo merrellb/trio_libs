@@ -1,4 +1,4 @@
-import traceback
+# Code by Brian Merrell
 import trio
 from trio_util import AwaitableSet
 

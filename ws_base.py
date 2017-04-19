@@ -1,7 +1,6 @@
 # Code by Brian Merrell
 # Inspiration from Curio and Trio documentation and examples
 
-import traceback
 import trio
 from wsproto.events import (ConnectionClosed, ConnectionRequested,
                             ConnectionEstablished, TextReceived,
@@ -32,7 +31,6 @@ class WebsocketBase:
             ws_bytes = self.wsconn.bytes_to_send()
             await self.web_sock.sendall(ws_bytes)
         except Exception:
-            traceback.print_exc()
             print("Broken - sendall")
             self.shutdown.set()
 

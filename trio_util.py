@@ -1,4 +1,3 @@
-import traceback
 import trio
 
 def cancellable_factory(func_name, instance):
@@ -10,7 +9,6 @@ def cancellable_factory(func_name, instance):
                 instance.cancel_scopes.append(cancel_scope)
                 await func()
         except Exception as exc:
-            traceback.print_exc()
             print(func_name, " {}: crashed: {!r}".format(instance.ident, exc))
             instance.shutdown.set()
         print(func_name, " {}: stopped".format(instance.ident))
@@ -36,6 +34,5 @@ class AwaitableSet(set):
     async def shutdown_all(self):
         async with trio.open_nursery() as nursery:            
             for conn in self:
-                conn.shutdown.set()
                 nursery.spawn(conn.do_shutdown)
         await self.empty.wait()
