@@ -12,7 +12,7 @@ def cancellable_factory(func_name, instance):
         except Exception as exc:
             traceback.print_exc()
             print(func_name, " {}: crashed: {!r}".format(instance.ident, exc))
-            await instance.shutdown.set()
+            instance.shutdown.set()
         print(func_name, " {}: stopped".format(instance.ident))
     return scope_func
 
