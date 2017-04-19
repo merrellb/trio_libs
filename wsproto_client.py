@@ -42,4 +42,4 @@ class WebSocketClientConnection(WebsocketBase):
 
 
 wsc = ClientRunner(WebSocketClientConnection)
-trio.run(wsc.run)
+trio.run(wsc.run, restrict_keyboard_interrupt_to_checkpoints=True)

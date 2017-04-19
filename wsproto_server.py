@@ -22,4 +22,4 @@ class WebSocketServerConnection(WebsocketBase):
 
 
 wss = ServerRunner(WebSocketServerConnection)
-trio.run(wss.run)
+trio.run(wss.run, restrict_keyboard_interrupt_to_checkpoints=True)
