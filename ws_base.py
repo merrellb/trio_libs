@@ -23,7 +23,6 @@ class WebsocketBase:
     def __init__(self, web_sock):
         self.web_sock = web_sock
         self.shutdown = trio.Event()
-        self.finished = trio.Event()
         self.in_q = trio.Queue(self.in_q_size)
         self.out_q = trio.Queue(self.out_q_size)
         self.cancel_scopes = []
@@ -42,7 +41,7 @@ class WebsocketBase:
             nursery.spawn(cancellable_factory(func_name, self))
         self.all_ws = all_ws
         self.all_ws.add(self)
-        nursery.spawn(self.do_shutdown)
+        nursery.spawn(self.shutdown_wait)
 
     async def close_conn(self):
         try:
@@ -51,15 +50,17 @@ class WebsocketBase:
         except Exception:
             pass  # Connection has already been closed
 
-    async def do_shutdown(self):
+    async def shutdown_wait(self):
         print("Awaiting shutdown event")
         await self.shutdown.wait()
+        print("Shutdown Event")
+        await self.do_shutdown()
+
+    async def do_shutdown(self):
         await self.close_conn()
         for cancel_scope in self.cancel_scopes:
             cancel_scope.cancel()
-        await trio.sleep(0)
         self.all_ws.remove(self)
-        self.finished.set()
 
     async def send(self):
         await self.sendall()

@@ -34,6 +34,8 @@ class AwaitableSet(set):
             self.empty.set()
 
     async def shutdown_all(self):
-        for conn in self:
-            conn.shutdown.set()
+        async with trio.open_nursery() as nursery:            
+            for conn in self:
+                conn.shutdown.set()
+                nursery.spawn(conn.do_shutdown)
         await self.empty.wait()

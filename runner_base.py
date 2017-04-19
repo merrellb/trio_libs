@@ -10,15 +10,15 @@ class RunnerBase():
         self.args = args
         self.kwargs = kwargs
     async def run(self):
-        async with trio.open_nursery() as nursery:
+        with trio.socket.socket() as socket:
             connection_manager = AwaitableSet()
-            with trio.socket.socket() as socket:
-                try:
-                    await self.process(nursery, socket, connection_manager)
-                except KeyboardInterrupt:
-                    print("Keyboard")
-                    await connection_manager.shutdown_all()
-                    print("Done")
+            try:
+                async with trio.open_nursery() as nursery:            
+                        await self.process(nursery, socket, connection_manager)
+            except KeyboardInterrupt:
+                print("Keyboard")
+                await connection_manager.shutdown_all()
+                print("Done")
 
 class ClientRunner(RunnerBase):
     async def process(self, nursery, sock, connection_manager):
@@ -28,7 +28,6 @@ class ClientRunner(RunnerBase):
         wsc = self.connection_cls(sock, "Singleton", self.host, self.port,
                                   *self.args, **self.kwargs)
         wsc.run(nursery, connection_manager)
-        await wsc.finished.wait()
 
 class ServerRunner(RunnerBase):
     async def process(self, nursery, listen_sock, connection_manager):
