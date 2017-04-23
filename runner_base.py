@@ -13,8 +13,8 @@ class RunnerBase():
         with trio.socket.socket() as socket:
             connection_manager = AwaitableSet()
             try:
-                async with trio.open_nursery() as nursery:            
-                        await self.process(nursery, socket, connection_manager)
+                async with trio.open_nursery() as nursery:
+                    nursery.spawn(self.process, nursery, socket, connection_manager)
             except KeyboardInterrupt:
                 print("Keyboard")
                 await connection_manager.shutdown_all()
