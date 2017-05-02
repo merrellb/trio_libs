@@ -21,44 +21,41 @@ class WebsocketBase:
 
     def __init__(self, web_sock):
         self.web_sock = web_sock
-        self.shutdown = trio.Event()
         self.in_q = trio.Queue(self.in_q_size)
         self.out_q = trio.Queue(self.out_q_size)
-        self.cancel_scopes = []
 
     async def sendall(self):
         try:
             ws_bytes = self.wsconn.bytes_to_send()
             await self.web_sock.sendall(ws_bytes)
         except Exception:
-            print("Broken - sendall")
-            self.shutdown.set()
+            print("Broken - sendall", self.ident)
+            print(ws_bytes)
+            await self.shutdown()
 
-    def run(self, nursery, all_ws):
-        for func_name in ["generate", "send", "process", "recv"]:
-            nursery.spawn(cancellable_factory(func_name, self))
-        self.all_ws = all_ws
-        self.all_ws.add(self)
-        nursery.spawn(self.shutdown_wait)
-
-    async def close_conn(self):
+    async def run(self):
         try:
+            async with trio.open_nursery() as self.nursery:
+                for func_name in ["generate", "send", "process", "recv"]:
+                    self.nursery.spawn(cancellable_factory(func_name, self))
+        finally:
+            with trio.open_cancel_scope(shield=True):
+                await self.send_close_conn()
+
+    async def send_close_conn(self):
+        try:
+            print("Closing Connection")
             self.wsconn.close()
             await self.sendall()
-        except Exception:
+            print("Close sent")
+            await trio.sleep(0)
+        except Exception as exc:
+            print("Can't send close")
             pass  # Connection has already been closed
 
-    async def shutdown_wait(self):
-        print("Awaiting shutdown event")
-        await self.shutdown.wait()
-        print("Shutdown Event")
-        await self.do_shutdown()
-
-    async def do_shutdown(self):
-        await self.close_conn()
-        for cancel_scope in self.cancel_scopes:
-            cancel_scope.cancel()
-        self.all_ws.remove(self)
+    async def shutdown(self):
+        self.nursery.cancel_scope.cancel()
+        await trio.sleep(0)
 
     async def send(self):
         await self.sendall()
@@ -71,23 +68,21 @@ class WebsocketBase:
         while True:
             data = await self.web_sock.recv(self.BUFSIZE)
             if not data:
-                print("No data - recv")
-                self.shutdown.set()
-                return
+                print("No data - recv", self.ident)
+                await self.shutdown()
             self.wsconn.receive_bytes(data)
             for event in self.wsconn.events():
                 cl = event.__class__
                 if cl in DATA_TYPES:
                     await self.in_q.put(event.data)
                 elif cl is ConnectionRequested:
-                    print("AcceptingConnection")
+                    print("Accepting Connection")
                     self.wsconn.accept(event)
                 elif cl is ConnectionEstablished:
-                    print("ConnectionEstablished")
+                    print("Connection Established")
                 elif cl is ConnectionClosed:
-                    print("Closed by Client")
-                    self.shutdown.set()
-                    return
+                    print("Connection Remotely Closed")
+                    await self.shutdown()
                 else:
                     print("Surprised:", event)
 
