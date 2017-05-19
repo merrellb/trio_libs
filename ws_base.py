@@ -48,10 +48,8 @@ class WebsocketBase:
             self.wsconn.close()
             await self.sendall()
             print("Close sent")
-            await trio.sleep(0)
         except Exception as exc:
             print("Can't send close")
-            pass  # Connection has already been closed
 
     async def shutdown(self):
         self.nursery.cancel_scope.cancel()
@@ -78,6 +76,7 @@ class WebsocketBase:
                 elif cl is ConnectionRequested:
                     print("Accepting Connection")
                     self.wsconn.accept(event)
+                    await self.sendall() #"Connected")
                 elif cl is ConnectionEstablished:
                     print("Connection Established")
                 elif cl is ConnectionClosed:
